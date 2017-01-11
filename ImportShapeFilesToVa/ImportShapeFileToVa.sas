@@ -1,3 +1,16 @@
+/**************************************************
+********************MIT LICENCE********************
+***************************************************
+Copyright 2017, Marcel Toledo <me|AT|mrclll|DOT|in>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+****************************************************/
+
+
 /* The valib library is pre-assigned in the box where VA is intalled. */
 /* The MAPSCSTM needs to be created in advance put the lib assignement in the appserver_autoexec_usermods.sas */ 
 
@@ -16,6 +29,7 @@
 %put NOTE: precision = &precision.;
 %put NOTE: cleanUp = &cleanUp.;
 %put NOTE: renderMap = &renderMap.;
+%put NOTE: gprojectFrom = &gprojectFrom.;
 
 /* add 1 (number) to the end of the table's name if needed */
 %macro checkFinalTableName;
@@ -200,6 +214,22 @@ run;
 %checkError;
 
 /**  Step end PROC_MAPIMPORT **/
+
+/*===========================================================================* 
+ * Step:            PROC_GPROJECT                                             * 
+ *===========================================================================*/ 
+%macro runGProject;
+	%if (%quote(&gprojectFrom.) ne )%then %do;
+		%put NOTE:Running Proc Gproject, projecting from <&gprojectFrom.> to <EPSG:4326/WGS84>;
+		proc gproject data=mapimport_output out=mapimport_output
+			from="&gprojectFrom." 
+			to="EPSG:4326";
+			id _sk_internal;
+		run;
+		%checkError;
+	%end;
+%mend runGProject;
+%runGProject;
 
 /*===========================================================================* 
  * Step:            PROC_GREDUCE                                             * 
@@ -505,7 +535,7 @@ quit;
 	%if (not %sysfunc(exist(MAPSCSTM._IMPORT_LOG))) %then %do;     
 		data MAPSCSTM._IMPORT_LOG;
 			length mapname $ 50 ISO $ 3 PREFIX $ 2 density 8 final_table $ 41 idcolumn $ 32 idcolumndesc $ 32
-					shp_file $ 300 admintype $ 30 precision 8 cleanUp $ 3;
+					shp_file $ 300 admintype $ 30 precision 8 cleanUp $ 3 gprojectFrom $ 300;
 			label mapname = "Map Name"
 				ISO = "ISO"
 				PREFIX = "Prefix"
@@ -516,7 +546,8 @@ quit;
 				shp_file = "Shape File Path"
 				admintype = "Administration Type"
 				precision = "Precision"
-				cleanUp = "Clean Up";
+				cleanUp = "Clean Up"
+				gprojectFrom = "Shape's file spatial reference system";
 			stop;
 		run;
 		%checkError;
@@ -533,6 +564,7 @@ quit;
 		admintype = trim("&admintype.");
 		precision = &precision.;
 		cleanUp = compress("&cleanUp"); 
+		gprojectFrom = trim("&gprojectFrom.");
 	run;
 	proc append base=MAPSCSTM._IMPORT_LOG data=_IMPORT_LOG force nowarn;
 	run;
